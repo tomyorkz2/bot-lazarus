@@ -14,7 +14,6 @@ GRIS = 0x55554F    # el servidor no responde
 
 LEMA = "DISCIPLINA · PRECISIÓN · LEALTAD"
 CONEXION = os.environ.get("ARMA_CONEXION", "38.225.91.3:2332")
-LOGO_URL = os.environ.get("LAZARUS_LOGO_URL", "")
 
 MAX_CAMPO = 1024  # limite de Discord por valor de campo
 
@@ -42,6 +41,8 @@ def construir(estado, visto_por_ultima_vez: str = None) -> dict:
     usa cuando el servidor esta caido, para no perder ese dato.
     """
     ahora = datetime.now(timezone.utc).isoformat()
+    # Se lee en cada llamada para que el runner local pueda fijarla al vuelo.
+    LOGO_URL = os.environ.get("LAZARUS_LOGO_URL", "")
 
     if not estado.en_linea:
         embed = {

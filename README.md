@@ -1,9 +1,15 @@
 # Estado de LAZARUS OPS en Discord
 
-Un mensaje fijo en Discord que se actualiza solo cada 5 minutos con el estado
+Un mensaje fijo en Discord que se actualiza solo cada minuto con el estado
 del servidor de Arma 3: misión en curso, cuántos hay dentro y quiénes son.
 
-No necesita hosting. Corre en GitHub Actions, gratis.
+Corre en el PC del usuario mediante `bot_local.py` (~28 MB de RAM).
+
+> **Nota sobre GitHub Actions:** el proyecto nació corriendo en Actions con un
+> cron de 5 minutos, pero GitHub deprioriza los workflows programados y daba
+> **una ejecución cada 1-2 horas**, inservible para saber quién está conectado.
+> El cron quedó desactivado en `estado.yml`; el disparo manual sigue disponible
+> como respaldo para refrescar el mensaje si el PC está apagado.
 
 ```
 🟢  LAZARUS OPS                    ← verde: hay gente jugando
@@ -30,7 +36,39 @@ El color comunica el estado de un vistazo:
 
 ---
 
-## Puesta en marcha
+## Uso diario (ejecución local)
+
+```
+iniciar_bot.bat     arranca el bot en segundo plano, sin ventana
+detener_bot.bat     lo detiene
+bot.log             registro de actividad
+```
+
+Para que arranque solo con Windows, ver la sección *Arranque automático*.
+
+Configuración en `config_local.json` (no se sube a git, contiene el webhook).
+Se parte de `config_local.ejemplo.json`:
+
+| Campo | Para qué |
+|---|---|
+| `webhook_url` | El webhook del canal de Discord |
+| `message_id` | El mensaje que se edita, lo da `setup.py` |
+| `intervalo_segundos` | Cada cuánto actualiza. Mínimo 30, por defecto 60 |
+| `logo_url` | Thumbnail del embed |
+| `arma_host` / `arma_query_port` | Servidor a consultar |
+
+## Arranque automático
+
+El bot no se instala solo en el arranque a propósito. Para activarlo:
+
+1. `Win + R` → `shell:startup` → se abre la carpeta de Inicio
+2. Crear ahí un acceso directo a `iniciar_bot.bat`
+
+Para quitarlo, se borra ese acceso directo.
+
+---
+
+## Puesta en marcha desde cero
 
 ### 1. Crear el webhook en Discord
 

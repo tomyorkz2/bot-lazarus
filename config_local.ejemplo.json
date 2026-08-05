@@ -1,0 +1,9 @@
+{
+  "_comentario": "Copia este archivo como config_local.json y rellena los valores. config_local.json esta en .gitignore y no se sube nunca.",
+  "webhook_url": "https://discord.com/api/webhooks/XXXXX/YYYYY",
+  "message_id": "1234567890123456789",
+  "intervalo_segundos": 60,
+  "logo_url": "https://raw.githubusercontent.com/tomyorkz2/bot-lazarus/main/logo_lazarus.png",
+  "arma_host": "38.225.91.3",
+  "arma_query_port": 2333
+}

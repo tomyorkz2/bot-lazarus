@@ -5,8 +5,11 @@ name: Latido mensual
 # mensaje de estado no se congele.
 
 on:
-  schedule:
-    - cron: "0 5 1 * *" # dia 1 de cada mes, 05:00 UTC
+  # DESACTIVADO el 2026-08-05 junto con el cron de estado.yml. Ya no hace
+  # falta mantener vivo el repo, porque no depende de workflows programados.
+  #
+  # schedule:
+  #   - cron: "0 5 1 * *"
   workflow_dispatch:
 
 permissions:

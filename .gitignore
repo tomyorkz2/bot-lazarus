@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 .env
+
+# Configuracion local con el webhook de Discord.
+# NUNCA debe subirse: este repositorio es publico.
+config_local.json
+bot.log

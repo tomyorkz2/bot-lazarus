@@ -1,9 +1,10 @@
 """Consulta el servidor y edita el mensaje fijo de Discord.
 
-Lo ejecuta GitHub Actions cada 5 minutos. Nunca publica mensajes nuevos:
+Expone `actualizar()` para que lo usen tanto GitHub Actions (via este mismo
+archivo) como el runner local (`bot_local.py`). Nunca publica mensajes nuevos:
 siempre edita el mismo, por eso queda anclado en el canal.
 
-Variables de entorno necesarias (se configuran como Secrets del repo):
+Variables de entorno al ejecutarlo directamente:
   DISCORD_WEBHOOK_URL  el webhook del canal
   DISCORD_MESSAGE_ID   el id del mensaje creado por setup.py
 """
@@ -18,8 +19,6 @@ import urllib.request
 import embed
 import query
 
-WEBHOOK = os.environ.get("DISCORD_WEBHOOK_URL", "").rstrip("/")
-MENSAJE_ID = os.environ.get("DISCORD_MESSAGE_ID", "")
 REINTENTOS = 3
 
 
@@ -46,10 +45,48 @@ def _timestamp_anterior(url: str):
         return None
 
 
+def actualizar(webhook: str, mensaje_id: str, reintentos: int = REINTENTOS) -> tuple:
+    """Consulta el servidor y edita el mensaje.
+
+    Devuelve (exito, resumen). `resumen` es un texto corto para el log.
+    Los errores de red no se propagan: se informan en el resumen.
+    """
+    url = f"{webhook.rstrip('/')}/messages/{mensaje_id}"
+    estado = query.obtener_estado()
+
+    visto = _timestamp_anterior(url) if not estado.en_linea else None
+    cuerpo = {"embeds": [embed.construir(estado, visto)]}
+
+    if estado.en_linea:
+        resumen = f"{estado.jugadores}/{estado.maximo} · {estado.mision}"
+    else:
+        resumen = "servidor sin respuesta"
+
+    ultimo_error = ""
+    for intento in range(1, reintentos + 1):
+        try:
+            _peticion(url, "PATCH", cuerpo)
+            return True, resumen
+        except urllib.error.HTTPError as e:
+            detalle = e.read().decode("utf-8", "replace")[:150]
+            ultimo_error = f"HTTP {e.code}: {detalle}"
+            if e.code in (401, 403, 404):
+                return False, ultimo_error  # credenciales o id mal: no insistir
+        except urllib.error.URLError as e:
+            ultimo_error = f"red: {e.reason}"
+        if intento < reintentos:
+            time.sleep(3)
+
+    return False, ultimo_error
+
+
 def main() -> int:
+    webhook = os.environ.get("DISCORD_WEBHOOK_URL", "")
+    mensaje_id = os.environ.get("DISCORD_MESSAGE_ID", "")
+
     faltan = [
         nombre
-        for nombre, valor in (("DISCORD_WEBHOOK_URL", WEBHOOK), ("DISCORD_MESSAGE_ID", MENSAJE_ID))
+        for nombre, valor in (("DISCORD_WEBHOOK_URL", webhook), ("DISCORD_MESSAGE_ID", mensaje_id))
         if not valor
     ]
     if faltan:
@@ -59,32 +96,13 @@ def main() -> int:
         print("  - que el nombre no lleve espacios ni minusculas", file=sys.stderr)
         return 1
 
-    url = f"{WEBHOOK}/messages/{MENSAJE_ID}"
-    estado = query.obtener_estado()
+    exito, resumen = actualizar(webhook, mensaje_id)
+    if exito:
+        print(f"OK · {resumen}")
+        return 0
 
-    visto = _timestamp_anterior(url) if not estado.en_linea else None
-    cuerpo = {"embeds": [embed.construir(estado, visto)]}
-
-    for intento in range(1, REINTENTOS + 1):
-        try:
-            _peticion(url, "PATCH", cuerpo)
-            if estado.en_linea:
-                print(f"OK · {estado.jugadores}/{estado.maximo} · {estado.mision}")
-            else:
-                print("OK · servidor sin respuesta, embed en gris")
-            return 0
-        except urllib.error.HTTPError as e:
-            detalle = e.read().decode("utf-8", "replace")[:200]
-            print(f"Intento {intento}: HTTP {e.code} · {detalle}", file=sys.stderr)
-            if e.code in (401, 403, 404):
-                return 1  # credenciales o id mal: reintentar no arregla nada
-        except urllib.error.URLError as e:
-            print(f"Intento {intento}: red · {e.reason}", file=sys.stderr)
-        if intento < REINTENTOS:
-            time.sleep(3)
-
-    # Que falle Discord no debe romper el workflow: a los 5 min se reintenta solo.
-    print("No se pudo actualizar. Se reintentara en la proxima ronda.", file=sys.stderr)
+    # Que falle Discord no debe romper el workflow: se reintenta en la proxima ronda.
+    print(f"No se pudo actualizar ({resumen}).", file=sys.stderr)
     return 0
 
 

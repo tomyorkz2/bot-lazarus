@@ -1,10 +1,15 @@
 name: Estado LAZARUS OPS
 
 on:
-  schedule:
-    # Cada 5 minutos. GitHub puede retrasarlo en horas pico: es normal.
-    - cron: "*/5 * * * *"
-  workflow_dispatch: # permite lanzarlo a mano desde la pestana Actions
+  # DESACTIVADO el 2026-08-05. El cron de GitHub daba una ejecucion cada
+  # 1-2 horas en vez de cada 5 minutos, porque GitHub deprioriza los
+  # workflows programados. El bot pasa a ejecutarse en el PC del usuario
+  # (ver bot_local.py). Se deja solo el disparo manual como respaldo:
+  # sirve para refrescar el mensaje si el PC esta apagado.
+  #
+  # schedule:
+  #   - cron: "*/5 * * * *"
+  workflow_dispatch:
 
 concurrency:
   # Si una ejecucion se retrasa, la nueva la sustituye en vez de encolarse.
