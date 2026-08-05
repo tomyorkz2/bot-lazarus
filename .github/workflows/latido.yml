@@ -1,0 +1,28 @@
+name: Latido mensual
+
+# GitHub desactiva los workflows programados si el repositorio pasa 60 dias
+# sin actividad. Este commit mensual mantiene el repo vivo para que el
+# mensaje de estado no se congele.
+
+on:
+  schedule:
+    - cron: "0 5 1 * *" # dia 1 de cada mes, 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  latido:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Registrar latido
+        run: |
+          date -u +"Ultimo latido: %Y-%m-%d %H:%M UTC" > latido.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latido.txt
+          git commit -m "chore: latido mensual para mantener activo el cron" || exit 0
+          git push

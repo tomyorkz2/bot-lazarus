@@ -1,0 +1,31 @@
+name: Estado LAZARUS OPS
+
+on:
+  schedule:
+    # Cada 5 minutos. GitHub puede retrasarlo en horas pico: es normal.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: # permite lanzarlo a mano desde la pestana Actions
+
+concurrency:
+  # Si una ejecucion se retrasa, la nueva la sustituye en vez de encolarse.
+  group: estado-lazarus
+  cancel-in-progress: true
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Actualizar el mensaje de Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_MESSAGE_ID: ${{ secrets.DISCORD_MESSAGE_ID }}
+          # El logo se sirve desde este mismo repo, sin configurar nada.
+          LAZARUS_LOGO_URL: https://raw.githubusercontent.com/${{ github.repository }}/main/logo_lazarus.png
+        run: python update.py
