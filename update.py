@@ -47,8 +47,16 @@ def _timestamp_anterior(url: str):
 
 
 def main() -> int:
-    if not WEBHOOK or not MENSAJE_ID:
-        print("ERROR: faltan DISCORD_WEBHOOK_URL o DISCORD_MESSAGE_ID.", file=sys.stderr)
+    faltan = [
+        nombre
+        for nombre, valor in (("DISCORD_WEBHOOK_URL", WEBHOOK), ("DISCORD_MESSAGE_ID", MENSAJE_ID))
+        if not valor
+    ]
+    if faltan:
+        print(f"ERROR: no llega el secret {' ni '.join(faltan)}", file=sys.stderr)
+        print("Revisa en Settings > Secrets and variables > Actions:", file=sys.stderr)
+        print("  - que esten en 'Repository secrets', NO en 'Environment secrets'", file=sys.stderr)
+        print("  - que el nombre no lleve espacios ni minusculas", file=sys.stderr)
         return 1
 
     url = f"{WEBHOOK}/messages/{MENSAJE_ID}"
