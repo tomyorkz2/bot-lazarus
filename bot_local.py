@@ -68,6 +68,14 @@ def cargar_config(log: logging.Logger) -> dict:
         os.environ["ARMA_HOST"] = cfg["arma_host"]
     if cfg.get("arma_query_port"):
         os.environ["ARMA_QUERY_PORT"] = str(cfg["arma_query_port"])
+
+    # El puerto que se muestra en el embed es el del juego, no el de consulta.
+    # Sin esto, cambiar de servidor en la config dejaba el campo "Conexion"
+    # anunciando la IP antigua sin que nada lo delatara.
+    if cfg.get("conexion"):
+        os.environ["ARMA_CONEXION"] = cfg["conexion"]
+    elif cfg.get("arma_host") and cfg.get("arma_query_port"):
+        os.environ["ARMA_CONEXION"] = f"{cfg['arma_host']}:{int(cfg['arma_query_port']) - 1}"
     return cfg
 
 

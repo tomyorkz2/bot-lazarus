@@ -4,6 +4,7 @@ El servidor de Arma 3 expone el puerto de consulta en <puerto_juego> + 1.
 Para LAZARUS OPS: juego en 2332, consulta en 2333.
 """
 
+import math
 import os
 import socket
 import struct
@@ -25,8 +26,17 @@ class Jugador:
 
     @property
     def tiempo(self) -> str:
-        """Devuelve el tiempo de sesion como '1h 12m' o '34m'."""
+        """Devuelve el tiempo de sesion como '1h 12m' o '34m'.
+
+        Arma devuelve a veces -1 o NaN para jugadores que aun estan entrando,
+        asi que hay que sanearlo: un NaN reventaba int() y dejaba el mensaje
+        sin actualizar hasta que ese jugador se iba.
+        """
+        if not math.isfinite(self.segundos) or self.segundos < 0:
+            return "nuevo"
         total = int(self.segundos)
+        if total < 60:
+            return "<1m"
         horas, minutos = total // 3600, (total % 3600) // 60
         return f"{horas}h {minutos:02d}m" if horas else f"{minutos}m"
 
@@ -68,7 +78,10 @@ def _consultar(payload: bytes, sufijo_challenge: bool = False) -> bytes:
 
 
 def _parsear_info(datos: bytes) -> Estado:
-    i = 5
+    # 0-3 cabecera magica, 4 el byte 'I', 5 la version de protocolo.
+    # El nombre empieza en el 6: arrancar en el 5 colaba el byte de protocolo
+    # (0x11) como primer caracter del nombre del servidor.
+    i = 6
     nombre, i = _leer_cadena(datos, i)
     mapa, i = _leer_cadena(datos, i)
     _carpeta, i = _leer_cadena(datos, i)
