@@ -7,3 +7,4 @@ __pycache__/
 # NUNCA debe subirse: este repositorio es publico.
 config_local.json
 bot.log
+bot.lock

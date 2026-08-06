@@ -11,6 +11,7 @@ La configuracion vive en config_local.json, que NO se sube a git porque
 contiene el webhook.
 """
 
+import atexit
 import json
 import logging
 import os
@@ -22,8 +23,76 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent
 CONFIG = BASE / "config_local.json"
 LOG = BASE / "bot.log"
+LOCK = BASE / "bot.lock"
 
 INTERVALO_MINIMO = 30  # segundos; por debajo no aporta nada y roza el rate limit
+
+
+def _proceso_vivo(pid: int) -> bool:
+    """Dice si un PID sigue activo.
+
+    En Windows NO se puede usar os.kill(pid, 0): alli Python lo implementa con
+    TerminateProcess y mataria el proceso en vez de consultarlo. Se usa
+    OpenProcess con permiso de solo consulta, que funciona incluso contra
+    procesos elevados desde una sesion sin privilegios.
+    """
+    if sys.platform != "win32":
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True  # existe, aunque no podamos tocarlo
+        return True
+
+    import ctypes
+
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    STILL_ACTIVE = 259
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return False
+    codigo = ctypes.c_ulong()
+    ok = kernel32.GetExitCodeProcess(handle, ctypes.byref(codigo))
+    kernel32.CloseHandle(handle)
+    return bool(ok) and codigo.value == STILL_ACTIVE
+
+
+def _liberar_lock() -> None:
+    try:
+        if LOCK.exists() and LOCK.read_text().strip() == str(os.getpid()):
+            LOCK.unlink()
+    except OSError:
+        pass
+
+
+def adquirir_lock(log: logging.Logger) -> bool:
+    """Impide que dos bots editen el mismo mensaje a la vez.
+
+    Antes esto se comprobaba mirando la linea de comandos de los procesos,
+    pero un proceso elevado la oculta a las sesiones sin privilegios: un bot
+    viejo quedo invisible y estuvo sobrescribiendo el mensaje con su codigo
+    antiguo. El PID en un fichero no tiene ese problema.
+    """
+    if LOCK.exists():
+        try:
+            pid = int(LOCK.read_text().strip())
+        except (ValueError, OSError):
+            pid = None
+        if pid and pid != os.getpid() and _proceso_vivo(pid):
+            log.error("Ya hay un bot corriendo (PID %s). No se arranca otro.", pid)
+            return False
+        log.info("Habia un bot.lock huerfano (PID %s ya no existe): se reemplaza.", pid)
+
+    try:
+        LOCK.write_text(str(os.getpid()), encoding="utf-8")
+    except OSError as e:
+        log.warning("No se pudo escribir bot.lock: %s", e)
+        return True  # no bloquear el arranque por no poder escribir el lock
+
+    atexit.register(_liberar_lock)
+    return True
 
 
 def configurar_log() -> logging.Logger:
@@ -95,6 +164,10 @@ def main() -> int:
         exito, resumen = update.actualizar(cfg["webhook_url"], cfg["message_id"])
         log.info("%s · %s", "OK" if exito else "FALLO", resumen)
         return 0 if exito else 1
+
+    # Solo el bucle toma el lock: una pasada suelta no estorba a nadie.
+    if not adquirir_lock(log):
+        return 1
 
     log.info("=" * 55)
     log.info("Bot de estado LAZARUS iniciado · cada %d segundos", intervalo)
